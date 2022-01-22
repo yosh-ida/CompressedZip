@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define ZLIB_COMPRESS	true
+#define ZLIB_COMPRESS	false
 
 zip::zip(ostream& stream) : out(stream), buffersize(64)
 {
@@ -14,7 +14,7 @@ zip::zip(ostream& stream) : out(stream), buffersize(64)
 	buf = (char*)malloc(buffersize);
 }
 
-zip::zip(ostream& stream, size_t bs) : out(stream), buffersize(bs)
+zip::zip(ostream& stream, const size_t bs) : out(stream), buffersize(bs)
 {
 	entries = 0;
 	buf = (char*)malloc(buffersize);
@@ -24,7 +24,7 @@ zip::~zip() {
 	free(buf);
 }
 
-bool zip::add(const char* s, std::istream& in)
+bool zip::add(const char* s, const std::istream& in)
 {
 	if (in.fail())
 		return false;
@@ -48,9 +48,8 @@ bool zip::add(const char* s, std::istream& in)
 
 	stringstream ss;
 	ss << in.rdbuf();
-	string const fstr = ss.str();
 
-	uint32_t crc = crc32.crc(fstr);
+	uint32_t crc = crc32.crc(ss);
 	//	CRC-32
 	crc_str[0] = (crc & 0xff);
 	crc_str[1] = ((crc & 0xff00) >> 8);
@@ -59,14 +58,17 @@ bool zip::add(const char* s, std::istream& in)
 	out.write(crc_str, 4);
 
 	//	deflate
-	uint32_t uclen = fstr.size();	//	under 4GB
+	ss.seekg(0, ios_base::end);
+	uint32_t uclen = ss.tellg();
+	ss.seekg(0, ios_base::beg);
 	uint32_t clen = uclen;
 
 	if (ZLIB_COMPRESS)
 	{
-		string tmp = fstr;
-		this->compress(const_cast<string&>(fstr), tmp, Z_DEFAULT_COMPRESSION);
-		clen = fstr.size();
+		ss = this->compress(ss, uclen, Z_DEFAULT_COMPRESSION);
+		ss.seekg(0, ios_base::end);
+		clen = ss.tellg();
+		ss.seekg(0, ios_base::beg);
 	}
 
 	//	compressed size
@@ -101,8 +103,13 @@ bool zip::add(const char* s, std::istream& in)
 
 	////////////////////////////////////////////
 	//	filedata
-	////////////////////////////////////////////
-	out.write(fstr.c_str(), clen);
+	////////////////////////////////////////////	
+	//auto sb = in.rdbuf();
+	//sb->pubseekoff(0, ios_base::beg, ios_base::in);
+	auto size = ss.readsome(buf, buffersize);
+	//auto size = sb->sgetn(buf, buffersize);
+	for (; size > 0; size = ss.readsome(buf, buffersize))
+		out.write(buf, size);
 
 	////////////////////////////////////////////
 	//	data descriptor
@@ -249,25 +256,24 @@ void zip::write()
 	uint32_t cen_size = central_directory_header.length();
 	out.put(cen_size & 0xff);
 	out.put((cen_size & 0xff00) >> 8);
-	out.put((cen_size & 0xff0000) >> 8);
-	out.put((cen_size & 0xff000000) >> 8);
+	out.put((cen_size & 0xff0000) >> 16);
+	out.put((cen_size & 0xff000000) >> 24);
 	//	offset of start of central directory ...
 	out.put(cen_offset & 0xff);
 	out.put((cen_offset & 0xff00) >> 8);
-	out.put((cen_offset & 0xff0000) >> 8);
-	out.put((cen_offset & 0xff000000) >> 8);
+	out.put((cen_offset & 0xff0000) >> 16);
+	out.put((cen_offset & 0xff000000) >> 24);
 	//	.ZIP file comment length
 	out.put(0x00);
 	out.put(0x00);
 	//	.ZIP file comment
 }
 
-void zip::compress(string& output, string& data, int level) const
+stringstream zip::compress(const stringstream& data, const size_t size, const int level) const
 {
-	uint16_t size = data.size();
-
+	static size_t limit = (size_t)1 << 31;
 	//	less than 2GB 
-	if (size >= (1 << 31))
+	if (size >= limit)
 		throw std::runtime_error("size may use more memory than intended when decompressing");
 
 	z_stream deflate_s;
@@ -283,11 +289,12 @@ void zip::compress(string& output, string& data, int level) const
 
 	if (deflateInit2(&deflate_s, level, Z_DEFLATED, window_bits, mem_level, Z_DEFAULT_STRATEGY) != Z_OK)
 		throw std::runtime_error("deflate init failed");
-
-	deflate_s.next_in = (z_const Bytef*)(data.c_str());
+	deflate_s.next_in = (z_const Bytef*)(data.str().c_str());
 	deflate_s.avail_in = size;
 
 	size_t size_compressed = 0;
+	string output;
+	
 	do
 	{
 		size_t increase = size / 2 + 1024;
@@ -303,4 +310,5 @@ void zip::compress(string& output, string& data, int level) const
 
 	deflateEnd(&deflate_s);
 	output.resize(size_compressed);
+	return stringstream(output);
 }

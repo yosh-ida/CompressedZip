@@ -11,12 +11,9 @@ class CRC32
 	uint32_t update_crc(uint32_t crc, unsigned char* buf, int len);
 
 	uint32_t update_crc(uint32_t crc, std::stringstream& stream);
-
-	uint32_t update_crc(uint32_t crc, std::string const& str);
 protected:
 	/* Make the table for a fast CRC. */
 	static void make_crc_table();
 public:
 	uint32_t crc(std::stringstream& stream);
-	uint32_t crc(std::string const& str);
 };

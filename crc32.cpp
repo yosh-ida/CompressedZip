@@ -53,22 +53,7 @@ uint32_t CRC32::update_crc(uint32_t crc, stringstream& stream)
 	make_crc_table();
 
 	for (n = 0; n < len; n++) {
-		c = crc_table[(c ^ stream.get()) & 0xff] ^ (c >> 8);
-	}
-	return c ^ 0xffffffffL;
-}
-
-uint32_t CRC32::update_crc(uint32_t crc, string const& str)
-{
-	uint32_t c = crc ^ 0xffffffffL;
-	uint32_t n;
-
-	uint32_t len = str.size();
-
-	make_crc_table();
-
-	for (n = 0; n < len; n++) {
-		c = crc_table[(c ^ str[n]) & 0xff] ^ (c >> 8);
+		c = crc_table[(c ^ (uint8_t)stream.get()) & 0xff] ^ (c >> 8);
 	}
 	return c ^ 0xffffffffL;
 }
@@ -76,9 +61,4 @@ uint32_t CRC32::update_crc(uint32_t crc, string const& str)
 uint32_t CRC32::crc(stringstream& stream)
 {
 	return update_crc(0L, stream);
-}
-
-uint32_t CRC32::crc(string const& str)
-{
-	return update_crc(0L, str);
 }

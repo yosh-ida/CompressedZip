@@ -47,13 +47,11 @@ class zip
 	const char const last_mod_file_time[2] = { (char)0x9B, 0x01 };	//	random time
 	const char const last_mod_file_date[2] = { 0x0B, 0x51 };	//	random time
 
-
-	void compress(std::string &output, std::string &data, int level) const;
-
+	std::stringstream compress(const std::stringstream& data, const size_t size, const int level) const;
 public:
 	zip(std::ostream& stream);
 
-	zip(std::ostream& stream, size_t buffersize);
+	zip(std::ostream& stream, const size_t buffersize);
 
 	~zip();
 
@@ -69,7 +67,7 @@ public:
 	 * @return –ß‚è’l‚Ìà–¾
 	 * @detail Ú×‚Èà–¾
 	*/
-	bool add(const char* s, std::istream& in);
+	bool add(const char* s, const std::istream& in);
 
 	void write();
 };
