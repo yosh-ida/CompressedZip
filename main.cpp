@@ -5,13 +5,18 @@
 
 using namespace std;
 
-int main() {
-	ofstream ofs("out.zip", ios_base::binary);
+int main(int argc, char *argv[])
+{
+	if (argc <= 2)
+		return 0;
+	ofstream ofs(argv[argc - 1], ios_base::binary);
 	zip z(ofs, 128);
+
+	for (int i = 1; i < argc - 1; i++)
 	{
-		stringbuf str("caaaaaaaaaaaaaaaaaaabbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac");
-		istream istream(&str);
-		z.add("a.txt", istream);
+		ifstream istream(argv[i], ios_base::binary);
+		z.add(argv[i], istream);
+		istream.close();
 	}
 	z.write();
 	ofs.close();
